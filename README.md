@@ -161,7 +161,7 @@ RetailPulse/
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
-git clone https://github.com/YOUR_USERNAME/RetailPulse.git
+git clone https://github.com/Yamini-Katuri/RetailPulse.git
 cd RetailPulse
 pip install -r requirements.txt
 ```
