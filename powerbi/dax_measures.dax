@@ -1,0 +1,182 @@
+/*
+================================================================================
+RetailPulse — E-Commerce Sales & Customer Analytics
+Power BI DAX Measures Repository
+================================================================================
+Copy and paste these measures directly into your Power BI Desktop model.
+Group them inside a dedicated '_Measures' table for clean governance.
+================================================================================
+*/
+
+-- =============================================================================
+-- 1. CORE REVENUE & FINANCIAL MEASURES
+-- =============================================================================
+
+Total Revenue = 
+SUM('retailpulse_orders'[sales])
+
+Total Profit = 
+SUM('retailpulse_orders'[profit])
+
+Total Units Sold = 
+SUM('retailpulse_orders'[quantity])
+
+Total Distinct Orders = 
+DISTINCTCOUNT('retailpulse_orders'[order_id])
+
+Total Line Items = 
+COUNTROWS('retailpulse_orders')
+
+Total Unique Customers = 
+DISTINCTCOUNT('retailpulse_orders'[customer_id])
+
+Overall Profit Margin % = 
+DIVIDE([Total Profit], [Total Revenue], 0)
+
+Average Order Value (AOV) = 
+DIVIDE([Total Revenue], [Total Distinct Orders], 0)
+
+Average Revenue Per Unit = 
+DIVIDE([Total Revenue], [Total Units Sold], 0)
+
+Total Gross Sales (Pre-Discount) = 
+SUMX(
+    'retailpulse_orders',
+    DIVIDE('retailpulse_orders'[sales], (1 - 'retailpulse_orders'[discount]), 'retailpulse_orders'[sales])
+)
+
+Total Discount Amount = 
+[Total Gross Sales (Pre-Discount)] - [Total Revenue]
+
+Average Discount % = 
+AVERAGE('retailpulse_orders'[discount])
+
+-- =============================================================================
+-- 2. TIME INTELLIGENCE & GROWTH MEASURES
+-- =============================================================================
+
+Revenue Prior Year (PY) = 
+CALCULATE(
+    [Total Revenue],
+    SAMEPERIODLASTYEAR('Dim_Date'[Date])
+)
+
+Revenue YoY Growth % = 
+VAR _Current = [Total Revenue]
+VAR _Prior = [Revenue Prior Year (PY)]
+RETURN
+    IF(
+        ISBLANK(_Prior),
+        BLANK(),
+        DIVIDE(_Current - _Prior, _Prior, 0)
+    )
+
+Profit Prior Year (PY) = 
+CALCULATE(
+    [Total Profit],
+    SAMEPERIODLASTYEAR('Dim_Date'[Date])
+)
+
+Profit YoY Growth % = 
+VAR _Current = [Total Profit]
+VAR _Prior = [Profit Prior Year (PY)]
+RETURN
+    IF(
+        ISBLANK(_Prior),
+        BLANK(),
+        DIVIDE(_Current - _Prior, _Prior, 0)
+    )
+
+Monthly Sales MoM Growth % = 
+VAR _CurrentMonth = [Total Revenue]
+VAR _PrevMonth = CALCULATE([Total Revenue], DATEADD('Dim_Date'[Date], -1, MONTH))
+RETURN
+    DIVIDE(_CurrentMonth - _PrevMonth, _PrevMonth, 0)
+
+-- =============================================================================
+-- 3. CUSTOMER ANALYTICS & RFM MEASURES
+-- =============================================================================
+
+Repeat Customers Count = 
+CALCULATE(
+    DISTINCTCOUNT('retailpulse_orders'[customer_id]),
+    FILTER(
+        VALUES('retailpulse_orders'[customer_id]),
+        CALCULATE(DISTINCTCOUNT('retailpulse_orders'[order_id])) > 1
+    )
+)
+
+Repeat Customer Rate % = 
+DIVIDE([Repeat Customers Count], [Total Unique Customers], 0)
+
+Average Customer Lifetime Spend = 
+DIVIDE([Total Revenue], [Total Unique Customers], 0)
+
+Champions Revenue = 
+CALCULATE(
+    [Total Revenue],
+    'retailpulse_orders'[customer_segment] = "Champions"
+)
+
+Loyal Customers Revenue = 
+CALCULATE(
+    [Total Revenue],
+    'retailpulse_orders'[customer_segment] = "Loyal Customers"
+)
+
+At Risk Customers Revenue = 
+CALCULATE(
+    [Total Revenue],
+    'retailpulse_orders'[customer_segment] = "At Risk"
+)
+
+VIP Revenue Contribution % = 
+DIVIDE(
+    CALCULATE(
+        [Total Revenue],
+        'retailpulse_orders'[customer_segment] IN {"Champions", "Loyal Customers"}
+    ),
+    [Total Revenue],
+    0
+)
+
+-- =============================================================================
+-- 4. OPERATIONS & LOGISTICS MEASURES
+-- =============================================================================
+
+Average Shipping Days = 
+AVERAGE('retailpulse_orders'[shipping_days])
+
+Total Delayed Orders = 
+CALCULATE(
+    COUNTROWS('retailpulse_orders'),
+    'retailpulse_orders'[is_shipping_delayed] = 1
+)
+
+Shipping Delay Rate % = 
+DIVIDE([Total Delayed Orders], [Total Line Items], 0)
+
+-- =============================================================================
+-- 5. PROFITABILITY & RISK AUDIT MEASURES
+-- =============================================================================
+
+Loss Making Transactions Count = 
+CALCULATE(
+    COUNTROWS('retailpulse_orders'),
+    'retailpulse_orders'[profit] < 0
+)
+
+Loss Transaction Rate % = 
+DIVIDE([Loss Making Transactions Count], [Total Line Items], 0)
+
+Deep Discount Revenue = 
+CALCULATE(
+    [Total Revenue],
+    'retailpulse_orders'[discount_tier] = "> 40% (Deep Discount)"
+)
+
+Deep Discount Net Loss = 
+CALCULATE(
+    [Total Profit],
+    'retailpulse_orders'[discount_tier] = "> 40% (Deep Discount)"
+)
